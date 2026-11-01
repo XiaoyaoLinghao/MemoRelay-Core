@@ -1,0 +1,8 @@
+{
+  "product": "MemoRelay-Core",
+  "version": "2.0.0rc1",
+  "imported_code_commit": "9f2466cc2ce3e204b19b038051b74db3205abf52",
+  "original_source_commit": "a2ddfb6f7b38bd6cfc49d0c2b6daf2789363f55e",
+  "contract_content_commit": "9f2466cc2ce3e204b19b038051b74db3205abf52",
+  "note": "The new repository starts with a reviewed source snapshot. contracts/v1 bytes are unchanged; Bridge must re-vendor their provenance to this new repository's contract-content commit. This metadata commit does not change the contract."
+}
