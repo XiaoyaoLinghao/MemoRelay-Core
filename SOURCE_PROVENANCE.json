@@ -249,7 +249,7 @@
   },
   "modified_existing_files_sha256": {
     ".gitignore": "345e00e8240ce72567252a41694074eeaf38fa74530a0af1ff2d1fbc41250844",
-    "README.md": "46655b05c818eeae6577968a21827f14e3bc1a014c240d0c8d4bb060d7fb9c10",
+    "README.md": "1bc7e4ae8a7e34776b8f4b165c7d47a72cd49902f0759f34b17b68eb5b8cdff9",
     "pyproject.toml": "c34febe7c363248fd15c94748cab0c01fffbcd88c7f84553c2f6f36250088664",
     "src/knowledge_weaver/__init__.py": "dbda14b717b2ee4b034d2990878825d926d791237e3901fde22845e638193a26",
     "tests/ops/test_optional_isolation_fix2.py": "8f3fa82d8cf3c5f179f31274cfad392dc190b039ceb0fc0e6e93104b08231cd9"
