@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.venv/
+*.db
+
+# MemoRelay local runtime
+.venv/
+.runtime/
+artifacts/
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+credentials*.json
+runtime.local.json

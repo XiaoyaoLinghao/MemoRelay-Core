@@ -1,0 +1,249 @@
+{
+  "Event": {
+    "schema_version": "1.0",
+    "event_id": "evt:4ccc6ba8b5f8693f4cdb5421453404b7da8c44f94c2a99c6de2638506abb3005",
+    "event_revision": 1,
+    "workspace_id": "owner:demo",
+    "operation": "create",
+    "source": {
+      "instance_id": "instance:hermes-test",
+      "host": "hermes",
+      "actor_id": "jun-test",
+      "session_id": "session:test",
+      "native_event_id": "message:17",
+      "native_schema": "hermes-snapshot-20261030",
+      "role": "user",
+      "origin_kind": "user_input",
+      "locator": "hermes://session:test/message:17"
+    },
+    "event_time": {
+      "value": "2026-10-30T09:00:00+08:00",
+      "precision": "instant",
+      "timezone": "Asia/Shanghai"
+    },
+    "body": {
+      "text": "松塔项目端口改为4200。",
+      "sha256": "6219e53be98e0cc6873f5c99a8f988fb5efd7f3fc3ccf8110925525a89df7776",
+      "part_index": 0,
+      "part_count": 1,
+      "content_revision": "native:1",
+      "format": "text/plain"
+    },
+    "redaction": {
+      "policy_version": "redact:1",
+      "status": "passed",
+      "replacements": 0,
+      "credential_refs": []
+    },
+    "project_ids": [
+      "project:songta"
+    ],
+    "parent_revision": null,
+    "derived_from": []
+  },
+  "Batch": {
+    "schema_version": "1.0",
+    "batch_id": "batch:test:1",
+    "events": [
+      {
+        "schema_version": "1.0",
+        "event_id": "evt:4ccc6ba8b5f8693f4cdb5421453404b7da8c44f94c2a99c6de2638506abb3005",
+        "event_revision": 1,
+        "workspace_id": "owner:demo",
+        "operation": "create",
+        "source": {
+          "instance_id": "instance:hermes-test",
+          "host": "hermes",
+          "actor_id": "jun-test",
+          "session_id": "session:test",
+          "native_event_id": "message:17",
+          "native_schema": "hermes-snapshot-20261030",
+          "role": "user",
+          "origin_kind": "user_input",
+          "locator": "hermes://session:test/message:17"
+        },
+        "event_time": {
+          "value": "2026-10-30T09:00:00+08:00",
+          "precision": "instant",
+          "timezone": "Asia/Shanghai"
+        },
+        "body": {
+          "text": "松塔项目端口改为4200。",
+          "sha256": "6219e53be98e0cc6873f5c99a8f988fb5efd7f3fc3ccf8110925525a89df7776",
+          "part_index": 0,
+          "part_count": 1,
+          "content_revision": "native:1",
+          "format": "text/plain"
+        },
+        "redaction": {
+          "policy_version": "redact:1",
+          "status": "passed",
+          "replacements": 0,
+          "credential_refs": []
+        },
+        "project_ids": [
+          "project:songta"
+        ],
+        "parent_revision": null,
+        "derived_from": []
+      }
+    ]
+  },
+  "RecallRequest": {
+    "schema_version": "1.0",
+    "request_id": "req:test:1",
+    "session_id": "session:new",
+    "turn_id": "turn:1",
+    "query": "松塔项目的端口是多少？",
+    "project_ids": [
+      "project:songta"
+    ],
+    "intent": "current",
+    "budget_tokens": 2000,
+    "limit": 8,
+    "deadline_ms": 5000,
+    "cursor": null
+  },
+  "Health": {
+    "schema_version": "1.0",
+    "status": "ready",
+    "backend_instance_id": "kw:one",
+    "restore_epoch": "restore:1",
+    "watermark": 42,
+    "supported_contracts": [
+      "1.0"
+    ],
+    "database_integrity": "ok"
+  },
+  "EvidenceRef": {
+    "event_id": "evt:4ccc6ba8b5f8693f4cdb5421453404b7da8c44f94c2a99c6de2638506abb3005",
+    "event_revision": 1,
+    "part_index": 0,
+    "start_byte": 0,
+    "end_byte": 31,
+    "body_sha256": "6219e53be98e0cc6873f5c99a8f988fb5efd7f3fc3ccf8110925525a89df7776",
+    "availability": "full"
+  },
+  "Receipt": {
+    "event_id": "evt:4ccc6ba8b5f8693f4cdb5421453404b7da8c44f94c2a99c6de2638506abb3005",
+    "event_revision": 1,
+    "part_index": 0,
+    "disposition": "accepted",
+    "durable_remote": true,
+    "processing": "pending",
+    "searchability": "none",
+    "error_code": null,
+    "receipt_id": "receipt:1"
+  },
+  "Correction": {
+    "schema_version": "1.0",
+    "operation_id": "op:correct:1",
+    "claim_id": "claim:port",
+    "expected_revision_id": "cr:1",
+    "expected_projection_generation": 1,
+    "new_value": 4200,
+    "display_text": "端口改为4200",
+    "evidence": [
+      {
+        "event_id": "evt:4ccc6ba8b5f8693f4cdb5421453404b7da8c44f94c2a99c6de2638506abb3005",
+        "event_revision": 1,
+        "part_index": 0,
+        "start_byte": 0,
+        "end_byte": 31,
+        "body_sha256": "6219e53be98e0cc6873f5c99a8f988fb5efd7f3fc3ccf8110925525a89df7776",
+        "availability": "full"
+      }
+    ],
+    "supersedes_revision_ids": [
+      "cr:1"
+    ],
+    "reason": "用户明确更正"
+  },
+  "MemoryItem": {
+    "claim_id": "claim:port",
+    "revision_id": "cr:2",
+    "project_id": "project:songta",
+    "subject_id": "subject:server",
+    "projection_generation": 2,
+    "value": 4200,
+    "qualifiers": {},
+    "predicate": "port",
+    "facet": "desired",
+    "text": "端口应配置为4200",
+    "state": "current",
+    "evidence_grade": "user_confirmed",
+    "event_time": {
+      "value": "2026-10-30T09:00:00+08:00",
+      "precision": "instant",
+      "timezone": "Asia/Shanghai"
+    },
+    "sources": [
+      {
+        "event_id": "evt:4ccc6ba8b5f8693f4cdb5421453404b7da8c44f94c2a99c6de2638506abb3005",
+        "event_revision": 1,
+        "part_index": 0,
+        "start_byte": 0,
+        "end_byte": 31,
+        "body_sha256": "6219e53be98e0cc6873f5c99a8f988fb5efd7f3fc3ccf8110925525a89df7776",
+        "availability": "full"
+      }
+    ],
+    "conflict_revision_ids": [],
+    "source_actors": [
+      "jun-test"
+    ],
+    "relevance_score": 1.0,
+    "source_detail_expired": false
+  },
+  "RecallResult": {
+    "schema_version": "1.0",
+    "request_id": "req:test:1",
+    "status": "ok",
+    "scope_candidates": [],
+    "watermark": 42,
+    "restore_epoch": "restore:1",
+    "items": [
+      {
+        "claim_id": "claim:port",
+        "revision_id": "cr:2",
+        "project_id": "project:songta",
+        "subject_id": "subject:server",
+        "projection_generation": 2,
+        "value": 4200,
+        "qualifiers": {},
+        "predicate": "port",
+        "facet": "desired",
+        "text": "端口应配置为4200",
+        "state": "current",
+        "evidence_grade": "user_confirmed",
+        "event_time": {
+          "value": "2026-10-30T09:00:00+08:00",
+          "precision": "instant",
+          "timezone": "Asia/Shanghai"
+        },
+        "sources": [
+          {
+            "event_id": "evt:4ccc6ba8b5f8693f4cdb5421453404b7da8c44f94c2a99c6de2638506abb3005",
+            "event_revision": 1,
+            "part_index": 0,
+            "start_byte": 0,
+            "end_byte": 31,
+            "body_sha256": "6219e53be98e0cc6873f5c99a8f988fb5efd7f3fc3ccf8110925525a89df7776",
+            "availability": "full"
+          }
+        ],
+        "conflict_revision_ids": [],
+        "source_actors": [
+          "jun-test"
+        ],
+        "relevance_score": 1.0,
+        "source_detail_expired": false
+      }
+    ],
+    "next_cursor": null,
+    "total_hits": 1,
+    "incomplete_reasons": [],
+    "used_tokens": 150,
+    "truncated": false
+  }
+}

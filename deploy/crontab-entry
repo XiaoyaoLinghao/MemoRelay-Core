@@ -1,0 +1,4 @@
+# Knowledge Weaver nightly consolidation
+0 4 * * * cd /home/openclaw/knowledge-weaver && /usr/bin/python3 -m knowledge_weaver consolidate >> /home/openclaw/.openclaw/logs/knowledge-weaver.log 2>&1
+# Knowledge Weaver nightly cleanup
+30 4 * * * cd /home/openclaw/knowledge-weaver && /usr/bin/python3 scripts/clean_and_rescore.py --db-path /home/openclaw/.openclaw/knowledge/knowledge.db >> /home/openclaw/.openclaw/logs/knowledge-weaver.log 2>&1

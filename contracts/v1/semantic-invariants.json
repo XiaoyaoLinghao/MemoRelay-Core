@@ -1,0 +1,90 @@
+[
+  {
+    "id": "ID-01",
+    "rule": "event_id is evt: + SHA256 of UTF-8 compact JSON array [workspace_id,instance_id,native_event_id], with exact strings, ensure_ascii=false and separators comma/colon. Backend recomputes it. Revision and part index identify payload; references use globally namespaced event_id and explicit revision. Content-only hashing is not event identity."
+  },
+  {
+    "id": "ID-02",
+    "rule": "Same event revision and identical canonical redacted payload returns duplicate without writes/model calls; different payload is conflict, never overwrite."
+  },
+  {
+    "id": "SRC-01",
+    "rule": "Actor/user/project authorization comes from installed client binding and native envelope, not body text or model-selected role."
+  },
+  {
+    "id": "SRC-02",
+    "rule": "Validate native origin kind; memory injections, maintenance and host compaction summaries are not new user facts. Record exclusion receipt without ordinary semantic ingestion."
+  },
+  {
+    "id": "RAW-01",
+    "rule": "Commit sanitized raw source and outbox before source checkpoint; core accepted receipt only after durable transaction. Part groups are not complete until every part hash verified."
+  },
+  {
+    "id": "SEC-01",
+    "rule": "Redact before any outbox/body/cache/model/export/log write; body digest is after redaction. KW recheck never silently rewrites body: failed input returns withheld/REDACTION_REQUIRED with no body stored. DMA purges suspect outbox content, updates policy and rereads native source before retry."
+  },
+  {
+    "id": "SEC-02",
+    "rule": "An accepted source redaction upgrade uses operation=redact, next event_revision and parent_revision; native content_revision and business time unchanged. Remove older secret-bearing bodies and invalidate projections transactionally; retain nonsecret lineage. Same-version different content remains conflict."
+  },
+  {
+    "id": "SRC-03",
+    "rule": "All parts of a revision must match source, operation, parent, time, scope, redaction policy, content_revision and part_count. Reject metadata disagreement; process only complete consistent group. Retract is one empty part, part_count=1, applying to all parts of the prior event."
+  },
+  {
+    "id": "SRC-04",
+    "rule": "Retract marks prior evidence retracted, increments affected projection generations, invalidates vectors and recomputes remaining support atomically. Unsupported claims become revoked/uncertain, never silently current. Late jobs cannot restore revoked support."
+  },
+  {
+    "id": "CLAIM-03",
+    "rule": "Correction evidence refs are resolved from stored events with explicit revision/part/hash/span, native role=user and origin=user_input; supplied availability is not trusted. Validate the proposed replacement against actual supported user correction; mismatch remains pending_evidence without a new revision."
+  },
+  {
+    "id": "CLAIM-01",
+    "rule": "Current key includes project, subject, predicate, facet and qualifiers. Independent properties never overwrite one entity summary."
+  },
+  {
+    "id": "CLAIM-02",
+    "rule": "Explicit supported user correction targets specified revisions with compare-and-swap. Inferred assistant content cannot supersede confirmed desired/user state."
+  },
+  {
+    "id": "TIME-01",
+    "rule": "Use original source business time/precision. Overlapping intervals with contradictory equally authoritative claims are conflict. Unknown time never acquires import time as business time."
+  },
+  {
+    "id": "TIME-02",
+    "rule": "Desired vs observed are separate facets. Successful command exit alone does not verify an entire task; verification evidence must cover acceptance conditions."
+  },
+  {
+    "id": "JOB-01",
+    "rule": "A lease heartbeat is not proof of failure; stale worker output must match lease token, input version and tombstone generation before commit."
+  },
+  {
+    "id": "VEC-01",
+    "rule": "Current text, text_hash and pending-vector job change atomically. Remove stale JSON/native index entries immediately; failure retains pending state; enforce model/revision/dimension/normalization."
+  },
+  {
+    "id": "TTL-01",
+    "rule": "Retrieval, summaries, imports, maintenance and restores do not extend retention. Unknown lifecycle stays unclassified, never silently marked completed."
+  },
+  {
+    "id": "TTL-02",
+    "rule": "Tombstones and materialization generation prevent late jobs/reimports resurrecting expired source bodies. Original host files and credentials are out of cleanup scope."
+  },
+  {
+    "id": "RESTORE-01",
+    "rule": "Restore epoch changes; reconcile adapter receipts above snapshot watermark from retained outbox/native sources, report unrecoverable gaps."
+  },
+  {
+    "id": "RECALL-01",
+    "rule": "Current-query context must be ready before current model request; a previous-query cache is not a valid substitute. Response empty vs unavailable must differ."
+  },
+  {
+    "id": "EXPORT-01",
+    "rule": "Portable export contains logical retained records/receipts/tombstones, not a raw SQLite copy with unallocated old pages; omit secrets and absolute-keychain values."
+  },
+  {
+    "id": "LLM-01",
+    "rule": "LLM output is a proposal. Evidence quote must match provided sanitized source; unsupported claims/quasi-system instructions are rejected or quarantined, not promoted."
+  }
+]

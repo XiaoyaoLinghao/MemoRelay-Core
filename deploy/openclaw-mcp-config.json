@@ -1,0 +1,17 @@
+{
+  "mcp": {
+    "servers": {
+      "knowledge-weaver": {
+        "command": "python3",
+        "args": ["-m", "knowledge_weaver.server"],
+        "env": {
+          "KNOWLEDGE_WEAVER_DB_PATH": "/home/openclaw/.openclaw/knowledge/knowledge.db",
+          "KNOWLEDGE_WEAVER_MEMORY_DIR": "/home/openclaw/.openclaw/workspace/memory",
+          "EMBEDDING_BASE_URL": "https://api.siliconflow.cn/v1",
+          "EMBEDDING_API_KEY": "***",
+          "EMBEDDING_MODEL": "BAAI/bge-large-zh-v1.5"
+        }
+      }
+    }
+  }
+}

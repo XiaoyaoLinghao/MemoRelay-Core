@@ -1,0 +1,2239 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "DMA / Knowledge Weaver shared memory contract",
+    "version": "1.0.0-design",
+    "description": "Implementation specification only. Source of truth proposed at knowledge-weaver/contracts/v1; DMA vendors a checksummed release. Default transport HTTP over owner-only Unix socket, not a TCP listener. X-DMA-Client is a trusted local installation binding, not a cryptographic identity or hostile-tenant boundary."
+  },
+  "servers": [
+    {
+      "url": "http://localhost",
+      "description": "Logical HTTP origin carried over configured Unix socket; no public listener"
+    }
+  ],
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "operationId": "health",
+        "description": "Read readiness; no LLM calls.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid version/schema; batch not committed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or cursor conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable; retain outbox and retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Unknown local binding or scope not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Source or referenced object not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Encoded payload exceeds limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientBinding"
+          }
+        ]
+      }
+    },
+    "/v1/events:batch": {
+      "post": {
+        "operationId": "ingestBatch",
+        "description": "Validate whole request shape first. Then one transaction per event; rejected/duplicate dispositions are per item. Accepted means fsynced sanitized source, not extraction complete. No LLM call on ingress.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid version/schema; batch not committed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or cursor conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable; retain outbox and retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Unknown local binding or scope not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Source or referenced object not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Encoded payload exceeds limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Batch"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientBinding"
+          }
+        ]
+      }
+    },
+    "/v1/recall": {
+      "post": {
+        "operationId": "recall",
+        "description": "Unified automatic and explicit recall. Scope from registered local client; never infer caller identity from remembered text. No answer-generation LLM on synchronous recall path.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecallResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid version/schema; batch not committed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or cursor conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable; retain outbox and retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Unknown local binding or scope not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Source or referenced object not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Encoded payload exceeds limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecallRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientBinding"
+          }
+        ]
+      }
+    },
+    "/v1/corrections": {
+      "post": {
+        "operationId": "correct",
+        "description": "Require source user evidence and current revision; atomically invalidate old projections. Missing dependencies remain pending; raw source is not discarded.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid version/schema; batch not committed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or cursor conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable; retain outbox and retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Unknown local binding or scope not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Source or referenced object not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Encoded payload exceeds limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Correction"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientBinding"
+          }
+        ]
+      }
+    },
+    "/v1/sources/{event_id}": {
+      "get": {
+        "operationId": "readSource",
+        "description": "Opaque source ID, never arbitrary path read. Expired source returns metadata and null text.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid version/schema; batch not committed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or cursor conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable; retain outbox and retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Unknown local binding or scope not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Source or referenced object not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Encoded payload exceeds limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^evt:[a-f0-9]{64}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "part_index",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ClientBinding"
+          }
+        ]
+      }
+    },
+    "/v1/status": {
+      "get": {
+        "operationId": "status",
+        "description": "Per-operation pending and last-success; idle does not clear an unrelated failure.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid version/schema; batch not committed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or cursor conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable; retain outbox and retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Unknown local binding or scope not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Source or referenced object not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Encoded payload exceeds limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientBinding"
+          }
+        ]
+      }
+    },
+    "/v1/capabilities": {
+      "get": {
+        "operationId": "listCapabilities",
+        "description": "Nonsecret registry. Registration is a local adapter/admin operation; no automatic installation or execution.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilitiesResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid version/schema; batch not committed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or cursor conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable; retain outbox and retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Unknown local binding or scope not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Source or referenced object not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Encoded payload exceeds limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientBinding"
+          }
+        ]
+      }
+    },
+    "/v1/resources": {
+      "get": {
+        "operationId": "listResources",
+        "description": "Nonsecret registry. Registration is a local adapter/admin operation; no automatic installation or execution.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourcesResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid version/schema; batch not committed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or cursor conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable; retain outbox and retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Unknown local binding or scope not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Source or referenced object not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Encoded payload exceeds limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientBinding"
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Time": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "precision": {
+            "type": "string",
+            "enum": [
+              "instant",
+              "day",
+              "unknown"
+            ]
+          },
+          "timezone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "value",
+          "precision",
+          "timezone"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "precision": {
+                  "const": "instant"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "precision": {
+                  "const": "day"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "format": "date"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "precision": {
+                  "const": "unknown"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "value": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Source": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "instance_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "host": {
+            "type": "string",
+            "enum": [
+              "hermes",
+              "dsh",
+              "openclaw",
+              "codex",
+              "claude_code",
+              "legacy"
+            ]
+          },
+          "actor_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "session_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "native_event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "native_schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant",
+              "tool",
+              "system"
+            ]
+          },
+          "origin_kind": {
+            "type": "string",
+            "enum": [
+              "user_input",
+              "assistant_reply",
+              "tool_execution",
+              "host_system",
+              "memory_injection",
+              "maintenance",
+              "derived_import"
+            ]
+          },
+          "turn_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "parent_event_id": {
+            "type": "string",
+            "pattern": "^evt:[a-f0-9]{64}$"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            },
+            "uniqueItems": true
+          },
+          "locator": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        },
+        "required": [
+          "instance_id",
+          "host",
+          "actor_id",
+          "session_id",
+          "native_event_id",
+          "native_schema",
+          "role",
+          "origin_kind",
+          "locator"
+        ]
+      },
+      "Body": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 250000
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "part_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "part_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "content_revision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "format": {
+            "const": "text/plain"
+          }
+        },
+        "required": [
+          "text",
+          "sha256",
+          "part_index",
+          "part_count",
+          "content_revision",
+          "format"
+        ]
+      },
+      "Redaction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "policy_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "redacted",
+              "withheld"
+            ]
+          },
+          "replacements": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "credential_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            },
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "policy_version",
+          "status",
+          "replacements",
+          "credential_refs"
+        ]
+      },
+      "SourceRevisionRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^evt:[a-f0-9]{64}$"
+          },
+          "event_revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "event_id",
+          "event_revision"
+        ]
+      },
+      "Event": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0"
+          },
+          "event_id": {
+            "type": "string",
+            "pattern": "^evt:[a-f0-9]{64}$"
+          },
+          "event_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "workspace_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "create",
+              "edit",
+              "retract",
+              "redact"
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/Source"
+          },
+          "event_time": {
+            "$ref": "#/components/schemas/Time"
+          },
+          "body": {
+            "$ref": "#/components/schemas/Body"
+          },
+          "redaction": {
+            "$ref": "#/components/schemas/Redaction"
+          },
+          "project_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            },
+            "uniqueItems": true,
+            "maxItems": 20
+          },
+          "parent_revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "derived_from": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRevisionRef"
+            },
+            "uniqueItems": true,
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "schema_version",
+          "event_id",
+          "event_revision",
+          "workspace_id",
+          "operation",
+          "source",
+          "event_time",
+          "body",
+          "redaction",
+          "project_ids",
+          "parent_revision",
+          "derived_from"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "operation": {
+                  "const": "create"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "event_revision": {
+                  "const": 1
+                },
+                "parent_revision": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "parent_revision": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "event_revision": {
+                  "type": "integer",
+                  "minimum": 2
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "operation": {
+                  "const": "retract"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "body": {
+                  "properties": {
+                    "text": {
+                      "const": ""
+                    },
+                    "sha256": {
+                      "const": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    },
+                    "part_index": {
+                      "const": 0
+                    },
+                    "part_count": {
+                      "const": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Batch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0"
+          },
+          "batch_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "schema_version",
+          "batch_id",
+          "events"
+        ]
+      },
+      "Receipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^evt:[a-f0-9]{64}$"
+          },
+          "event_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "part_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "duplicate",
+              "excluded",
+              "withheld",
+              "expired",
+              "rejected"
+            ]
+          },
+          "durable_remote": {
+            "type": "boolean"
+          },
+          "processing": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "ready",
+              "failed",
+              "not_applicable"
+            ]
+          },
+          "searchability": {
+            "type": "string",
+            "enum": [
+              "none",
+              "keyword",
+              "semantic"
+            ]
+          },
+          "error_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "receipt_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          }
+        },
+        "required": [
+          "event_id",
+          "event_revision",
+          "part_index",
+          "disposition",
+          "durable_remote",
+          "processing",
+          "searchability",
+          "error_code",
+          "receipt_id"
+        ]
+      },
+      "BatchResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0"
+          },
+          "backend_instance_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "restore_epoch": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "watermark": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "receipts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Receipt"
+            }
+          }
+        },
+        "required": [
+          "schema_version",
+          "backend_instance_id",
+          "restore_epoch",
+          "watermark",
+          "receipts"
+        ]
+      },
+      "RecallRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0"
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "session_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "turn_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000
+          },
+          "project_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            },
+            "uniqueItems": true,
+            "maxItems": 20
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "current",
+              "history",
+              "tasks",
+              "sources",
+              "all_projects"
+            ]
+          },
+          "budget_tokens": {
+            "type": "integer",
+            "minimum": 128,
+            "maximum": 8000
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "deadline_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 7000
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "session_id",
+          "turn_id",
+          "query",
+          "project_ids",
+          "intent",
+          "budget_tokens",
+          "limit",
+          "deadline_ms",
+          "cursor"
+        ]
+      },
+      "EvidenceRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^evt:[a-f0-9]{64}$"
+          },
+          "event_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "part_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "start_byte": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end_byte": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "body_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "full",
+              "excerpt_only",
+              "expired",
+              "unknown",
+              "retracted",
+              "withheld"
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_revision",
+          "part_index",
+          "start_byte",
+          "end_byte",
+          "body_sha256",
+          "availability"
+        ]
+      },
+      "MemoryItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "revision_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subject_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "projection_generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "value": {},
+          "qualifiers": {
+            "type": "object"
+          },
+          "predicate": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "facet": {
+            "type": "string",
+            "enum": [
+              "desired",
+              "observed",
+              "reported",
+              "preference",
+              "decision",
+              "capability"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "current",
+              "uncertain",
+              "conflict",
+              "superseded",
+              "revoked",
+              "expired"
+            ]
+          },
+          "evidence_grade": {
+            "type": "string",
+            "enum": [
+              "user_confirmed",
+              "tool_verified",
+              "reported",
+              "inferred",
+              "legacy_unknown"
+            ]
+          },
+          "event_time": {
+            "$ref": "#/components/schemas/Time"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRef"
+            }
+          },
+          "conflict_revision_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          },
+          "source_actors": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            },
+            "uniqueItems": true
+          },
+          "relevance_score": {
+            "type": "number"
+          },
+          "source_detail_expired": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "claim_id",
+          "revision_id",
+          "project_id",
+          "subject_id",
+          "projection_generation",
+          "value",
+          "qualifiers",
+          "predicate",
+          "facet",
+          "text",
+          "state",
+          "evidence_grade",
+          "event_time",
+          "sources",
+          "conflict_revision_ids",
+          "source_actors",
+          "relevance_score",
+          "source_detail_expired"
+        ]
+      },
+      "ScopeCandidate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "label": {
+            "type": "string"
+          },
+          "match_kind": {
+            "type": "string",
+            "enum": [
+              "exact_alias",
+              "session_binding",
+              "semantic_candidate"
+            ]
+          }
+        },
+        "required": [
+          "project_id",
+          "label",
+          "match_kind"
+        ]
+      },
+      "RecallResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0"
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "empty",
+              "degraded",
+              "unavailable"
+            ]
+          },
+          "scope_candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScopeCandidate"
+            },
+            "maxItems": 10
+          },
+          "watermark": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "restore_epoch": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryItem"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total_hits": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "incomplete_reasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "embedding_unavailable",
+                "deadline",
+                "processing_pending",
+                "scope_unresolved",
+                "source_missing",
+                "budget"
+              ]
+            }
+          },
+          "used_tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "status",
+          "scope_candidates",
+          "watermark",
+          "restore_epoch",
+          "items",
+          "next_cursor",
+          "total_hits",
+          "incomplete_reasons",
+          "used_tokens",
+          "truncated"
+        ]
+      },
+      "Correction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0"
+          },
+          "operation_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "claim_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "expected_revision_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "expected_projection_generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "new_value": {},
+          "display_text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRef"
+            },
+            "minItems": 1,
+            "maxItems": 20
+          },
+          "supersedes_revision_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "schema_version",
+          "operation_id",
+          "claim_id",
+          "expected_revision_id",
+          "expected_projection_generation",
+          "new_value",
+          "display_text",
+          "evidence",
+          "supersedes_revision_ids",
+          "reason"
+        ]
+      },
+      "CorrectionResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "duplicate",
+              "pending_evidence",
+              "conflict"
+            ]
+          },
+          "claim_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "revision_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "projection_generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "watermark": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "operation_id",
+          "status",
+          "claim_id",
+          "revision_id",
+          "projection_generation",
+          "watermark"
+        ]
+      },
+      "SourceResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^evt:[a-f0-9]{64}$"
+          },
+          "event_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "full",
+              "excerpt_only",
+              "expired",
+              "withheld",
+              "unknown",
+              "retracted"
+            ]
+          },
+          "part_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "part_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "source": {
+            "$ref": "#/components/schemas/Source"
+          },
+          "event_time": {
+            "$ref": "#/components/schemas/Time"
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "redaction": {
+            "$ref": "#/components/schemas/Redaction"
+          }
+        },
+        "required": [
+          "event_id",
+          "event_revision",
+          "availability",
+          "part_index",
+          "part_count",
+          "source",
+          "event_time",
+          "text",
+          "redaction"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "degraded",
+              "maintenance",
+              "restoring"
+            ]
+          },
+          "backend_instance_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "restore_epoch": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "watermark": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "supported_contracts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "database_integrity": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unknown",
+              "error"
+            ]
+          }
+        },
+        "required": [
+          "schema_version",
+          "status",
+          "backend_instance_id",
+          "restore_epoch",
+          "watermark",
+          "supported_contracts",
+          "database_integrity"
+        ]
+      },
+      "PipelineStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "capture",
+              "deliver",
+              "extract",
+              "project",
+              "embed",
+              "cleanup",
+              "export"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "running",
+              "degraded",
+              "failed",
+              "unknown"
+            ]
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "oldest_pending_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "last_success_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "last_error_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "operation",
+          "state",
+          "pending",
+          "failed",
+          "oldest_pending_at",
+          "last_success_at",
+          "last_error_code"
+        ]
+      },
+      "Status": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "health": {
+            "$ref": "#/components/schemas/Health"
+          },
+          "pipelines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineStatus"
+            }
+          }
+        },
+        "required": [
+          "health",
+          "pipelines"
+        ]
+      },
+      "Capability": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "capability_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "actor_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "source_uri": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "content_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "install_locator": {
+            "type": "string"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "available",
+              "missing",
+              "incompatible",
+              "unknown"
+            ]
+          },
+          "verified_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "capability_id",
+          "actor_id",
+          "name",
+          "source_uri",
+          "version",
+          "content_hash",
+          "install_locator",
+          "dependencies",
+          "state",
+          "verified_at"
+        ]
+      },
+      "Resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "resource_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "account_label": {
+            "type": "string"
+          },
+          "credential_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "recipe_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "last_verified_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "available",
+              "needs_os_authorization",
+              "unverified",
+              "unavailable"
+            ]
+          }
+        },
+        "required": [
+          "resource_id",
+          "project_id",
+          "name",
+          "endpoint",
+          "account_label",
+          "credential_ref",
+          "recipe_id",
+          "last_verified_at",
+          "state"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 180,
+                "pattern": "^[A-Za-z0-9._:-]+$"
+              },
+              "message": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "request_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 180,
+                "pattern": "^[A-Za-z0-9._:-]+$"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "retryable",
+              "request_id"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "CapabilitiesResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ResourcesResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Resource"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      }
+    },
+    "parameters": {
+      "ClientBinding": {
+        "in": "header",
+        "name": "X-DMA-Client",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        }
+      }
+    }
+  }
+}

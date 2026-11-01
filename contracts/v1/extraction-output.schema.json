@@ -1,0 +1,145 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "subject_hint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "project_hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "qualifiers": {
+            "type": "object"
+          },
+          "predicate": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "facet": {
+            "type": "string",
+            "enum": [
+              "desired",
+              "observed",
+              "reported",
+              "preference",
+              "decision",
+              "capability"
+            ]
+          },
+          "value": {},
+          "display_text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "assertion_kind": {
+            "type": "string",
+            "enum": [
+              "explicit_statement",
+              "explicit_correction",
+              "observation",
+              "completion_report",
+              "inference"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "event_id": {
+                  "type": "string",
+                  "pattern": "^evt:[a-f0-9]{64}$"
+                },
+                "event_revision": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "part_index": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "support_quote": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "event_id",
+                "event_revision",
+                "part_index",
+                "support_quote"
+              ]
+            },
+            "minItems": 1
+          },
+          "target_claim_hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "effective_time_quote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "subject_hint",
+          "project_hint",
+          "qualifiers",
+          "predicate",
+          "facet",
+          "value",
+          "display_text",
+          "assertion_kind",
+          "evidence",
+          "target_claim_hint",
+          "effective_time_quote"
+        ]
+      },
+      "maxItems": 100
+    },
+    "excluded_event_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^evt:[a-f0-9]{64}$"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 500
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "claims",
+    "excluded_event_ids",
+    "warnings"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Untrusted LLM proposal. Backend computes stable IDs, source identity, trust grade, spans, effective/retention clocks and authorized corrections; none are supplied by the model."
+}

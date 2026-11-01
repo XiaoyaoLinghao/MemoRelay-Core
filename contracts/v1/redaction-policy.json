@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "policy_version": "redact:1",
+  "description": "Sanitizer policy shared by the DMA adapter layer (redact before outbox) and the KW entry re-check (detect only, never rewrite). Patterns are applied to the full logical message before chunking so a secret cannot be split across parts. Replacements carry a non-secret kind label only; the secret value is never logged, stored or returned. A withheld rule means the whole message must not enter the evidence store.",
+  "withhold_kinds": ["private_key"],
+  "replacement_template": "[REDACTED:{kind_upper}]",
+  "known_secrets_note": "Installations may add exact known secrets at runtime (keychain/existing auth references). They are replaced with [REDACTED:KNOWN_SECRET] and never persisted in this policy file.",
+  "rules": [
+    {
+      "kind": "api_key",
+      "description": "Common API key prefixes (sk-, rk-, pk-) with a long token body.",
+      "pattern": "\\b(?:sk|rk|pk)-[A-Za-z0-9_-]{16,}\\b"
+    },
+    {
+      "kind": "aws_access_key",
+      "description": "AWS access key id shape.",
+      "pattern": "\\b(?:AKIA|ASIA)[0-9A-Z]{16}\\b"
+    },
+    {
+      "kind": "github_token",
+      "description": "GitHub personal/installation token shape.",
+      "pattern": "\\bgh[pousr]_[A-Za-z0-9]{20,}\\b"
+    },
+    {
+      "kind": "slack_token",
+      "description": "Slack bot/app/user token shape.",
+      "pattern": "\\bxox[baprs]-[A-Za-z0-9-]{10,}\\b"
+    },
+    {
+      "kind": "bearer_token",
+      "description": "Authorization: Bearer value.",
+      "pattern": "(?i)\\bbearer\\s+[A-Za-z0-9._\\-]{16,}"
+    },
+    {
+      "kind": "jwt",
+      "description": "JSON Web Token shape.",
+      "pattern": "\\beyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\b"
+    },
+    {
+      "kind": "password_assignment",
+      "description": "Password/口令 assignments in common Chinese and English forms.",
+      "pattern": "(?i)(?:password|passwd|pwd|密码|口令)\\s*[:：=]\\s*[^\\s，。；;]{6,}"
+    },
+    {
+      "kind": "private_key",
+      "description": "Multi-line private key block. Withheld: partial redaction cannot guarantee the key is unusable.",
+      "pattern": "-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----[\\s\\S]*?-----END (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----"
+    },
+    {
+      "kind": "url_userinfo",
+      "description": "Credentials embedded in a URL authority.",
+      "pattern": "\\b[a-zA-Z][a-zA-Z0-9+.-]*://[^/\\s:@]+:[^/\\s@]+@"
+    },
+    {
+      "kind": "url_query_token",
+      "description": "Token-like query parameter values in URLs.",
+      "pattern": "(?i)(?:[?&](?:token|api[_-]?key|access[_-]?token|secret|signature|sig)=)[^&\\s#]+"
+    },
+    {
+      "kind": "cookie_header",
+      "description": "Cookie / Set-Cookie header values.",
+      "pattern": "(?i)(?:set-)?cookie\\s*[:=]\\s*[^\\r\\n]{8,}"
+    }
+  ]
+}

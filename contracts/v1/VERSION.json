@@ -1,0 +1,21 @@
+{
+  "contract_id": "dma-kw-shared-memory",
+  "contract_version": "1.0",
+  "openapi_version": "3.1.0",
+  "event_schema_version": "1.0",
+  "supported_schema_versions": ["1.0"],
+  "extraction_schema_version": "1.0",
+  "redaction_policy_versions": ["redact:1"],
+  "compat": {
+    "client_emits": "1.0",
+    "backend_accepts": ">=1.0 <2.0"
+  },
+  "frozen_at": "2026-10-30T14:30:00+08:00",
+  "frozen_by": "DSH implementation; Codex independent review pending (T20)",
+  "canonical_source": "knowledge-weaver/contracts/v1",
+  "derived_from": "docs/baseline-20261030/contracts (frozen design package)",
+  "checksums_file": "SHA256SUMS",
+  "transport": "HTTP/1.1 over owner-only Unix domain socket; no TCP listener",
+  "identity_note": "X-DMA-Client is a trusted local installation binding, not a cryptographic identity or hostile same-OS-user boundary",
+  "change_policy": "Any semantic change requires a new contract_version, coordinated DMA vendoring update, contract tests in both repositories, a state/DECISIONS.md entry and Codex review. Frozen files are never edited in place under an existing version."
+}

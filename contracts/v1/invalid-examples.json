@@ -1,0 +1,79 @@
+[
+  {
+    "schema": "Event",
+    "patch": {
+      "schema_version": "99.0"
+    },
+    "reason": "unsupported contract"
+  },
+  {
+    "schema": "Event",
+    "patch": {
+      "password": "synthetic-only"
+    },
+    "reason": "unknown secret-bearing field"
+  },
+  {
+    "schema": "Event",
+    "patch": {
+      "event_time": {
+        "value": "2026-10-30T09:00:00",
+        "precision": "instant",
+        "timezone": "Asia/Shanghai"
+      }
+    },
+    "reason": "timezone required on instant"
+  },
+  {
+    "schema": "Event",
+    "patch": {
+      "parent_revision": 1
+    },
+    "reason": "create cannot supersede existing revision"
+  },
+  {
+    "schema": "RecallRequest",
+    "patch": {
+      "limit": 100000
+    },
+    "reason": "bounded response budget"
+  },
+  {
+    "schema": "Event",
+    "patch": {
+      "operation": "retract",
+      "event_revision": 2,
+      "parent_revision": 1
+    },
+    "reason": "retract requires one empty part"
+  },
+  {
+    "schema": "Event",
+    "patch": {
+      "event_id": "evt:bare-native-id"
+    },
+    "reason": "global source ID must be namespaced digest"
+  },
+  {
+    "schema": "Correction",
+    "patch": {
+      "evidence": [
+        {
+          "event_id": "evt:4ccc6ba8b5f8693f4cdb5421453404b7da8c44f94c2a99c6de2638506abb3005"
+        }
+      ]
+    },
+    "reason": "correction requires exact source revision and span"
+  },
+  {
+    "schema": "RecallResult",
+    "patch": {
+      "scope_candidates": [
+        {
+          "project_id": "project:x"
+        }
+      ]
+    },
+    "reason": "scope candidate must be explainable"
+  }
+]
