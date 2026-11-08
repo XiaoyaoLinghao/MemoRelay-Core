@@ -1,3 +1,4 @@
+import pytest
 """A model-disclaimed proposal is not a confirmed fact; retries stay bounded."""
 import json
 from knowledge_weaver.extraction import run_worker_once
@@ -21,13 +22,16 @@ def test_warning_withholds_values_then_retry_repairs_from_original_evidence(stor
  assert lifecycle(store,subject)['business_anchor']==event['event_time']['value']
  calls=len(good.calls);assert not run_worker_once(store,good)['claimed'] and len(good.calls)==calls
 
-def test_persistent_model_warning_stops_after_three_attempts_without_loss(store):
- event,subject,part=setup(store);bad=_proposal(_claim(part,assertion_kind='explicit_statement'));bad['warnings']=['still uncertain'];model=MockExtractor(bad);now=None
+@pytest.mark.parametrize("prompt,calls", [("prompt:7",3),("prompt:8",6)])
+def test_persistent_model_warning_stops_after_three_attempts_without_loss(store,prompt,calls):
+ event,subject,part=setup(store)
+ with store.transaction() as c:c.execute("UPDATE jobs SET prompt_version=? WHERE kind='extract'",(prompt,))
+ bad=_proposal(_claim(part,assertion_kind='explicit_statement'));bad['warnings']=['still uncertain'];model=MockExtractor(bad);now=None
  for i in range(3):
   result=run_worker_once(store,model,now=now)
   with store.read() as c:job=dict(c.execute("SELECT * FROM jobs WHERE kind='extract'").fetchone())
   now=job['run_after']
- assert result['state']=='failed' and len(model.calls)==3
+ assert result['state']=='failed' and len(model.calls)==calls
  assert not run_worker_once(store,model)['claimed'] and not current_items(store,workspace_id='owner:demo')
  assert fetch_source(store,event['event_id'],1,0)['text']==part.text
  assert lifecycle(store,subject)['state']=='bootstrap_pending'

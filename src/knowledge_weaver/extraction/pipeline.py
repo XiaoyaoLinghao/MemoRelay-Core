@@ -31,7 +31,7 @@ from .proposals import (
 )
 
 MODEL_VERSION = "model:unspecified"
-PROMPT_VERSION = "prompt:5"
+PROMPT_VERSION = "prompt:10"
 
 
 def extraction_input_key(event_id: str, revision: int) -> str:
@@ -241,6 +241,27 @@ def _fence_check(event_id: str, revision: int):
     return check
 
 
+def _known_anchor_context(group: dict, *, enriched: bool) -> list[dict]:
+    keys = ("claim_id", "project_id", "predicate", "facet", "label", "qualifiers")
+    if enriched:
+        keys += ("value", "state", "authority", "subject_id", "ordering_time")
+    result = []
+    for entry in group.get("claim_candidates", []):
+        anchor = {key: entry.get(key) for key in keys}
+        if contracts.secret_kinds(contracts.compact_json(anchor)):
+            continue
+        if enriched:
+            serialized = contracts.compact_json(anchor.get("value"))
+            if len(serialized.encode("utf-8")) > 1024:
+                anchor.pop("value",None)
+                anchor["value_digest"] = contracts.sha256_hex(serialized)
+                anchor["value_omitted_large"] = True
+            if len(contracts.compact_json(result + [anchor]).encode("utf-8")) > 8192:
+                break
+        result.append(anchor)
+    return result
+
+
 def run_extraction_job(store, job: dict, extractor, *, now: str | None = None) -> dict:
     event_id, raw_revision = job["input_key"].rsplit("@", 1)
     revision = int(raw_revision)
@@ -264,6 +285,21 @@ def run_extraction_job(store, job: dict, extractor, *, now: str | None = None) -
             expected_input_version=job["input_version"],
             now=now,
         )
+    reviewed = {entry["part_index"]: entry for entry in group.get("nonassertive_parts", [])}
+    if parts and all(part.part_index in reviewed for part in parts):
+        def reviewed_disposition(conn):
+            from knowledge_weaver.lifecycle.bootstrap import protect_sources_in_transaction, finalize_sources_in_transaction
+            for part in parts:
+                policy = conn.execute("SELECT reason FROM source_semantic_exclusions WHERE event_id=? AND event_revision=? AND part_index=? AND body_sha256=?", (event_id,revision,part.part_index,part.body_sha256)).fetchone()
+                if policy is None or policy["reason"] != reviewed[part.part_index]["reason"]:
+                    raise ExtractionError("STALE_CURSOR", "reviewed source scope changed", retryable=False)
+            recall = any(entry["reason"] == "historical_recall" for entry in reviewed.values())
+            protect_sources_in_transaction(conn,event_id=event_id,revision=revision,part_indices=set(reviewed),needs_review=recall,now=now)
+            if not recall:
+                finalize_sources_in_transaction(conn,event_id=event_id,revision=revision,part_indices=set(reviewed),class_by_part={index:"temporary_detail" for index in reviewed},job_id=job["job_id"],now=now)
+            conn.execute("UPDATE job_attempts SET detail=? WHERE job_id=? AND lease_token=?", (contracts.compact_json({"source_scope_reviewed":sorted({entry["reason"] for entry in reviewed.values()}),"claims_written":0,"source_preserved":True}),job["job_id"],job["lease_token"]))
+        result=commit_job(store,job["job_id"],job["lease_token"],expected_input_version=job["input_version"],mutate=reviewed_disposition,fence_check=_fence_check(event_id,revision),now=now)
+        return {**result,"claims_written":0,"claims_reused":0,"warnings":[]}
     previous_validation_error = None
     if int(job.get("attempts") or 1) > 1:
         with store.read() as conn:
@@ -272,30 +308,59 @@ def run_extraction_job(store, job: dict, extractor, *, now: str | None = None) -
             previous_validation_error = previous["detail"]
         elif previous and previous["error_code"] == "MODEL_REVIEW_REQUIRED":
             previous_validation_error = 'MODEL_REVIEW_REQUIRED: Previous new writes were withheld because the proposal contained warnings. Reserve warnings for unresolved contradictions or ambiguities that make the proposed factual content unsafe to retain. Normal caveats are represented by the proper assertion kind/facet: an assistant report stays reported, an open task stays open, a hypothesis stays inferred. Those valid weak grades do not themselves require a warning. Do not invent a user confirmation, evidence or date just to remove warnings. If the exact historical date of last time is not given, do not invent it; retain the supplied native source event time as statement provenance and leave effective_time_quote null. An unknown source clock must remain unknown. Preserve the actual work background and unfinished task; omit unsupported extra keys, not the well-grounded facts.'
-    proposal = extractor.extract(
-        parts,
-        context={
+    if job.get("prompt_version") in ("prompt:8", "prompt:9", "prompt:10"):
+        from .page_validation import ValidatedPageExtractor
+        extractor = ValidatedPageExtractor(store, extractor, group, parts)
+    if job.get("prompt_version") in ("prompt:6", "prompt:7", "prompt:8", "prompt:9", "prompt:10"):
+        from .segments import CheckpointingExtractor
+        extractor = CheckpointingExtractor(store, extractor)
+    context={
             **({"previous_validation_error": previous_validation_error} if previous_validation_error else {}),
             "event_id": event_id,
             "event_revision": revision,
             "project_ids": list(group["project_ids"]),
             "model_version": job.get("model_version"),
             "prompt_version": job.get("prompt_version"),
-            "known_claims": [
-                {key: entry[key] for key in ("claim_id", "project_id", "predicate", "facet", "label", "qualifiers")}
-                for entry in group.get("claim_candidates", [])
-            ],
-        },
-    )
-    issues = contracts.validate_extraction_output(proposal)
-    if issues:
-        first = issues[0]
-        raise ExtractionError(
-            "MODEL_UNAVAILABLE",
-            f"extraction proposal failed schema at {first.path}: {first.message}",
-            retryable=True,
-        )
-    resolved, warnings = resolve_proposal(group, proposal, parts)
+            "policy_version": job.get("policy_version"),
+            "known_claims": _known_anchor_context(group, enriched=False),
+            **({"known_claim_details": _known_anchor_context(group,enriched=True)} if job.get("prompt_version") in ("prompt:6", "prompt:7", "prompt:8", "prompt:9", "prompt:10") else {}),
+        }
+    if job.get("prompt_version") in ("prompt:7", "prompt:8", "prompt:9", "prompt:10"):
+        from .context import anchor_context, source_scope, repair_feedback
+        context.update(anchor_context(group, previous_validation_error))
+        context["source_scope"] = source_scope(group)
+        if previous_validation_error:
+            context["previous_validation_error"] = repair_feedback(previous_validation_error)
+    if job.get("prompt_version") in ("prompt:6", "prompt:7", "prompt:8", "prompt:9", "prompt:10"):
+        proposals = extractor.extract_proposals(parts, context)
+        proposal = extractor.merged_metadata()
+    else:
+        proposals = [extractor.extract(parts, context)]
+        proposal = proposals[0]
+    resolved, warnings = [], []
+    seen_resolved = set()
+    warned_claims = set()
+    warned_piece_indices = {}
+    rejected_pieces = []
+    from dataclasses import asdict
+    for piece_index, piece in enumerate(proposals):
+        if contracts.validate_extraction_output(piece):
+            raise ExtractionError("MODEL_UNAVAILABLE", "extraction proposal failed schema validation", retryable=True, category="schema_invalid")
+        try:
+            claims, piece_warnings = resolve_proposal(group, piece, parts)
+        except ExtractionError:
+            if job.get("prompt_version") in ("prompt:7", "prompt:8", "prompt:9", "prompt:10"):
+                extractor.discard_proposals([piece])
+            raise
+        warnings.extend(piece_warnings)
+        for item in claims:
+            key = contracts.compact_json(asdict(item))
+            if piece.get("warnings"):
+                warned_claims.add(key)
+                warned_piece_indices.setdefault(key, set()).add(piece_index)
+            if key not in seen_resolved:
+                seen_resolved.add(key)
+                resolved.append(item)
     committed_counts={"written":0,"reused":0}
     def mutate(conn):
         from knowledge_weaver.lifecycle.bootstrap import protect_sources_in_transaction
@@ -304,7 +369,9 @@ def run_extraction_job(store, job: dict, extractor, *, now: str | None = None) -
             needs_review=bool(warnings or proposal.get("warnings")), now=now)
         from knowledge_weaver.extraction.echoes import split_assistant_echoes
         fresh,reused=split_assistant_echoes(conn,resolved)
-        if fresh and proposal.get("warnings"):
+        warned_fresh = {contracts.compact_json(asdict(item)) for item in fresh} & warned_claims
+        if warned_fresh:
+            rejected_pieces.extend(proposals[index] for index in sorted({index for key in warned_fresh for index in warned_piece_indices[key]}))
             # Disclaimed NEW writes need repair. A zero-write exclusion/reuse
             # changes no remembered truth and must not pay for repeated retries.
             # Ambiguous raw source dispositions remain protected below.
@@ -359,15 +426,29 @@ def run_extraction_job(store, job: dict, extractor, *, now: str | None = None) -
             finalize_sources_in_transaction(conn, event_id=event_id, revision=revision,
                 part_indices=covered, class_by_part={**classes, **{index: "completed_task" for index in completed_parts}},
                 job_id=job["job_id"], now=now, anchor_by_part=echo_anchors)
-    result = commit_job(
-        store,
-        job["job_id"],
-        job["lease_token"],
-        expected_input_version=job["input_version"],
-        mutate=mutate,
-        fence_check=_fence_check(event_id, revision),
-        now=now,
-    )
+    if job.get("prompt_version") in ("prompt:6", "prompt:7", "prompt:8", "prompt:9", "prompt:10"):
+        original_mutate = mutate
+        def mutate(conn):
+            original_mutate(conn)
+            coverage = extractor.coverage
+            if not coverage.get("delegated_unchanged"):
+                conn.execute("CREATE TABLE IF NOT EXISTS extraction_segment_receipts (job_id TEXT PRIMARY KEY, input_key TEXT NOT NULL, prompt_version TEXT NOT NULL, coverage_json TEXT NOT NULL)")
+                conn.execute("INSERT OR REPLACE INTO extraction_segment_receipts(job_id,input_key,prompt_version,coverage_json) VALUES(?,?,?,?)", (job["job_id"],job["input_key"],job["prompt_version"],contracts.compact_json(coverage)))
+            extractor.clear_checkpoints_in_transaction(conn)
+    try:
+        result = commit_job(
+            store,
+            job["job_id"],
+            job["lease_token"],
+            expected_input_version=job["input_version"],
+            mutate=mutate,
+            fence_check=_fence_check(event_id, revision),
+            now=now,
+        )
+    except ExtractionError:
+        if job.get("prompt_version") in ("prompt:7", "prompt:8", "prompt:9", "prompt:10"):
+            extractor.discard_proposals(rejected_pieces)
+        raise
     result["claims_written"] = committed_counts["written"]
     result["claims_reused"] = committed_counts["reused"]
     result["warnings"] = warnings
@@ -393,26 +474,44 @@ def run_worker_once(
     if not claimed:
         return {"claimed": 0}
     job = claimed[0]
+    import threading
+    from knowledge_weaver.jobs import heartbeat
+    heartbeat_stop = threading.Event()
+    def keep_lease():
+        while not heartbeat_stop.wait(max(0.05, min(30.0, lease_seconds / 3))):
+            try:
+                if not heartbeat(store, job["job_id"], job["lease_token"], lease_seconds=lease_seconds):
+                    return
+            except Exception:
+                # The existing commit fence remains authoritative on DB/lease failures.
+                return
+    heartbeat_thread = threading.Thread(target=keep_lease, daemon=True, name="kw-extract-lease")
+    heartbeat_thread.start()
     try:
         result = run_extraction_job(store, job, extractor, now=now)
         return {"claimed": 1, "job_id": job["job_id"], "state": "succeeded", "claims_written": result.get("claims_written", 0), **({"claims_reused":result["claims_reused"]} if result.get("claims_reused") else {})}
     except ExtractionError as exc:
-        detail = None
+        from .diagnostics import classify_failure, failure_detail
+        category = getattr(exc, "category", None) or classify_failure(exc.code, exc.message)
+        diagnostic = failure_detail(category, http_status=getattr(exc, "http_status", None),
+                                    finish_reason=getattr(exc, "finish_reason", None),
+                                    usage_present=bool(getattr(exc, "usage_present", False)),
+                                    validation=getattr(exc,"validation_details",None),
+                                    segment_ranges=getattr(exc,"segment_ranges",None))
         if exc.message.startswith("FIELD_IDENTITY_COLLISION:"):
             detail = exc.message
-        elif exc.code == "MODEL_UNAVAILABLE":
-            # The provider may have consumed a request whose response was lost.
-            # No prices or secrets: unknown billing is never a claim of zero cost.
-            detail = json.dumps({
-                "billing_outcome": "unknown",
-                "provider_usage": None,
-                "reason": "external_request_outcome_unknown",
-            }, sort_keys=True)
+        elif exc.code == "MODEL_UNAVAILABLE" and category in ("transport","insufficient_metadata"):
+            detail = json.dumps({"billing_outcome":"unknown","provider_usage":None,"reason":"external_request_outcome_unknown"},sort_keys=True)
+        else:
+            detail = diagnostic
         outcome = fail_job(store, job["job_id"], job["lease_token"], exc.code,
-                           retryable=exc.retryable, now=now, detail=detail)
-        return {"claimed": 1, "job_id": job["job_id"], "state": outcome["state"], "error": exc.code}
+                           retryable=exc.retryable, now=now, detail=detail, diagnostic_detail=diagnostic)
+        return {"claimed":1,"job_id":job["job_id"],"state":outcome["state"],"error":exc.code,"failure_category":category}
     except ClaimError as exc:
         outcome = fail_job(store, job["job_id"], job["lease_token"], exc.code, retryable=False, now=now)
         return {"claimed": 1, "job_id": job["job_id"], "state": outcome["state"], "error": exc.code}
     except JobError as exc:
         return {"claimed": 1, "job_id": job["job_id"], "state": "stale", "error": exc.code}
+    finally:
+        heartbeat_stop.set()
+        heartbeat_thread.join(timeout=5)

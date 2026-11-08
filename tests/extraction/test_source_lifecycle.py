@@ -44,15 +44,17 @@ def test_failed_then_valid_extraction_unlocks_old_detail_but_keeps_knowledge(sto
     assert any(i["value"]==4200 and i["source_detail_expired"] for i in items)
 
 
+@pytest.mark.parametrize("processor",["prompt:8","prompt:9"])
 @pytest.mark.parametrize("mode",["invalid_quote","unaccounted","model_warning"])
-def test_success_without_complete_valid_disposition_does_not_unlock(store,mode):
+def test_success_without_complete_valid_disposition_does_not_unlock(store,mode,processor):
     event,subject,part=setup(store)
+    with store.transaction() as conn:conn.execute("UPDATE jobs SET prompt_version=? WHERE kind='extract'",(processor,))
     proposal=_proposal(_claim(part,assertion_kind="explicit_statement"))
     if mode=="invalid_quote":proposal["claims"][0]["evidence"][0]["support_quote"]="not in source"
     elif mode=="unaccounted":proposal["claims"]=[]
     else:proposal["warnings"]=["source remains ambiguous"]
     result=run_worker_once(store,MockExtractor(proposal))
-    assert result["state"]==("retry_wait" if mode=="model_warning" else "succeeded")
+    assert result["state"]==("retry_wait" if mode=="model_warning" or (processor=="prompt:9" and mode=="invalid_quote") else "succeeded")
     if mode=="model_warning":assert current_items(store,workspace_id="owner:demo")==[]
     assert lifecycle(store,subject)["state"]=="bootstrap_pending"
     assert sweep(store,now="2030-01-01T00:00:00Z")["event_parts"]==0

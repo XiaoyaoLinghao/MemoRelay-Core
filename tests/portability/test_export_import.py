@@ -380,7 +380,7 @@ def test_registry_survives_export_import(store, tmp_path):
     snapshot = tmp_path / "snapshot"
     exported = export_snapshot(store, snapshot)
     manifest = json.loads((snapshot / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["snapshot_schema_version"] == 3
+    assert manifest["snapshot_schema_version"] == 5
     assert manifest["counts"]["capabilities"] == 1
     assert manifest["counts"]["resources"] == 1
     report = import_snapshot(snapshot, tmp_path / "restored")

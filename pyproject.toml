@@ -1,6 +1,6 @@
 [project]
 name = "memorelay-core"
-version = "2.0.0rc1"
+version = "2.0.0"
 description = "MemoRelay-Core (Core local memory engine) — MemoRelay subsystem"
 requires-python = ">=3.11"
 # The KW 2.0 core is standard-library only on purpose. The baseline clean

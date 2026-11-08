@@ -69,6 +69,7 @@ from pathlib import Path, PurePosixPath
 from knowledge_weaver import contracts
 from knowledge_weaver.store.db import Store, utc_now
 from knowledge_weaver.store.status import VALID_RECOVERY_LINK_SQL
+from knowledge_weaver.jobs.repair_versions import upgrade_sql
 
 from .export import (
     BACKEND_FILE,
@@ -77,6 +78,8 @@ from .export import (
     SNAPSHOT_SCHEMA_VERSION,
     TABLES,
     V3_TABLES,
+    V4_TABLES,
+    V5_TABLES,
 )
 
 logger = logging.getLogger(__name__)
@@ -90,6 +93,7 @@ IMPORT_ORDER = (
     "claims",
     "claim_revisions",
     "evidence_links",
+    "source_semantic_exclusions",
     "current_claims",
     "task_views",
     "entities",
@@ -101,10 +105,11 @@ IMPORT_ORDER = (
     "tombstones",
     "jobs",
     "job_attempts",
+    "source_duplicate_resolutions",
 )
 
 SUPPORTED_FORMAT_VERSIONS = {FORMAT_VERSION}
-SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS = {1, 2, SNAPSHOT_SCHEMA_VERSION}
+SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS = {1, 2, 3, 4, SNAPSHOT_SCHEMA_VERSION}
 
 
 def _table_required(table: str, schema_version: int) -> bool:
@@ -115,6 +120,10 @@ def _table_required(table: str, schema_version: int) -> bool:
     and resources. A missing required file/count is a validation error, never a
     silent zero-row restore.
     """
+    if table in V5_TABLES:
+        return schema_version >= 5
+    if table in V4_TABLES:
+        return schema_version >= 4
     if schema_version >= 3:
         return True
     if schema_version >= 2:
@@ -1190,6 +1199,20 @@ def _validate_referential_integrity(conn) -> dict:
             f"AND NOT ({VALID_RECOVERY_LINK_SQL})"
         ),
     }
+    checks["invalid_extraction_upgrade_request"] = f"""SELECT COUNT(*) FROM jobs n LEFT JOIN jobs p ON p.job_id=n.repair_of_job_id
+        WHERE n.repair_of_job_id IS NOT NULL AND (p.job_id IS NULL OR n.kind<>'extract' OR p.kind<>'extract'
+        OR p.state<>'failed' OR p.last_error_code IS NULL OR n.input_key<>p.input_key OR n.input_version<=p.input_version
+        OR NOT {upgrade_sql('n.prompt_version','p.prompt_version')}
+        OR n.model_version IS NOT p.model_version OR n.policy_version IS NOT p.policy_version
+        OR (n.state='succeeded' AND p.recovered_by_job_id IS NOT n.job_id))"""
+    checks["invalid_source_semantic_exclusion"] = """SELECT COUNT(*) FROM source_semantic_exclusions x
+        LEFT JOIN event_parts p ON p.event_id=x.event_id AND p.revision=x.event_revision AND p.part_index=x.part_index
+        LEFT JOIN events e ON e.event_id=x.event_id
+        WHERE p.event_id IS NULL OR p.body_sha256<>x.body_sha256 OR e.role<>'tool' OR e.origin_kind<>'tool_execution'"""
+    from knowledge_weaver.store.source_duplicates import VALID_DUPLICATE_RESOLUTION_SQL
+    checks["invalid_native_duplicate_resolution"] = (
+        "SELECT COUNT(*) FROM source_duplicate_resolutions d LEFT JOIN jobs j ON j.job_id=d.failed_job_id "
+        "WHERE j.job_id IS NULL OR NOT ("+VALID_DUPLICATE_RESOLUTION_SQL+")")
     failures = {
         name: int(conn.execute(sql).fetchone()[0])
         for name, sql in checks.items()

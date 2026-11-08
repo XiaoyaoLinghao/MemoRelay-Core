@@ -1012,11 +1012,15 @@ def normalize_task_proposal(
 
 
 class ExtractionError(Exception):
-    def __init__(self, code: str, message: str, *, retryable: bool = False) -> None:
+    def __init__(self, code: str, message: str, *, retryable: bool = False, category: str | None = None, http_status: int | None = None, finish_reason: str | None = None, usage_present: bool = False) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
         self.retryable = retryable
+        self.category = category
+        self.http_status = http_status
+        self.finish_reason = finish_reason
+        self.usage_present = usage_present
 
 
 @dataclass(frozen=True)
@@ -1084,6 +1088,7 @@ def load_event_group(store, event_id: str, revision: int) -> dict:
         ),
         "event_time": event_time,
         "origin_kind": event["origin_kind"],
+        "source_aliases": __import__("json").loads(event["aliases_json"]),
         "lifecycle": revision_row["lifecycle"],
         "parts": [
             {
@@ -1106,6 +1111,20 @@ def load_event_group(store, event_id: str, revision: int) -> dict:
         ],
         "redaction_status": revision_row["redaction_status"],
     }
+    group["nonassertive_parts"] = []
+    with store.read() as conn:
+        has_policy = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='source_semantic_exclusions'").fetchone()
+        if has_policy:
+            group["nonassertive_parts"] = [dict(row) for row in conn.execute(
+                "SELECT x.part_index,x.reason,x.body_sha256 FROM source_semantic_exclusions x JOIN event_parts p ON p.event_id=x.event_id AND p.revision=x.event_revision AND p.part_index=x.part_index AND p.body_sha256=x.body_sha256 WHERE x.event_id=? AND x.event_revision=?",
+                (event_id,int(revision)))]
+    visible = {p["part_index"] for p in group["parts"] if p["availability"] == "full" and p["text"] is not None}
+    if visible and visible <= {p["part_index"] for p in group["nonassertive_parts"]}:
+        group["claim_candidates"] = []
+        return group
+    if group["origin_kind"] in EXCLUDED_ORIGINS:
+        group["claim_candidates"] = []
+        return group
     # A model cannot reproduce a stable backend identity from an unconstrained
     # natural-language name on every call. Offer scoped existing field anchors,
     # not previous records as new evidence. Scoped non-secret qualifiers are
@@ -1129,6 +1148,21 @@ def load_event_group(store, event_id: str, revision: int) -> dict:
         "JOIN claim_revisions r ON r.revision_id = "
         "json_extract(cc.selected_revision_ids_json, '$[0]') "
     )
+    # The keyword index must be the outer loop, not a table scanned once per
+    # claim.  With the old ``FROM claims c ... JOIN claim_fts`` order SQLite
+    # started from every scoped claim and re-ran the MATCH subquery for each one
+    # (``SCAN claim_fts`` inside the loop), which is quadratic on a large store.
+    # CROSS JOIN fixes the order claim_fts -> selected revision -> claim ->
+    # current projection, so the join is driven by the (small) set of keyword
+    # matches while every workspace/project/state/current-revision filter below
+    # still applies before ORDER BY/LIMIT.  bm25 ordering and the claim_id
+    # tie-break are unchanged.
+    fts_source = (
+        "FROM claim_fts "
+        "CROSS JOIN claim_revisions r ON r.revision_id = claim_fts.revision_id "
+        "CROSS JOIN claims c ON c.claim_id = r.claim_id "
+        "CROSS JOIN current_claims cc ON cc.claim_id = c.claim_id "
+    )
     scoped = (
         "c.workspace_id = ? AND " + project_filter
         + " AND cc.state IN ('current', 'conflict', 'uncertain') "
@@ -1139,9 +1173,9 @@ def load_event_group(store, event_id: str, revision: int) -> dict:
         rows = []
         if expression:
             rows = conn.execute(
-                columns + "FROM claims c " + joins
-                + "JOIN claim_fts ON claim_fts.revision_id = r.revision_id "
-                + "WHERE " + scoped + " AND claim_fts MATCH ? "
+                columns + fts_source + "WHERE " + scoped
+                + " AND r.revision_id = json_extract(cc.selected_revision_ids_json, '$[0]') "
+                + "AND claim_fts MATCH ? "
                 + "ORDER BY bm25(claim_fts), c.claim_id LIMIT 96",
                 (*args, expression),
             ).fetchall()

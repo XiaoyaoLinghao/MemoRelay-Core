@@ -1,3 +1,7 @@
+# 2.0.0 — 2026-11-08
+
+合入prompt10精确证据、长来源无损提炼/覆盖缓存/续租、公平队列、语义拒收诊断、有效恢复与原生副本审计、schema5导入导出。新命令memorelay-core，旧kw-memory兼容。
+
 # Changelog
 
 All notable changes to knowledge-weaver. Versioning follows [VERSIONING.md](VERSIONING.md).

@@ -277,7 +277,7 @@ def cmd_embed_worker(args) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="kw-memory", description="Unified Memory KW 2.0 operations CLI")
+    parser = argparse.ArgumentParser(prog="memorelay-core", description="Unified Memory KW 2.0 operations CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("versions", help="print contract/schema versions")

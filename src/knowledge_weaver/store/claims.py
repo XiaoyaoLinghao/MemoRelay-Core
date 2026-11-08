@@ -471,6 +471,7 @@ def _load_revisions(conn, claim_id: str) -> list[dict]:
         (claim_id,),
     ).fetchall()
     revisions = []
+    has_exclusions = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='source_semantic_exclusions'").fetchone() is not None
     for row in rows:
         links = [
             dict(link)
@@ -484,6 +485,10 @@ def _load_revisions(conn, claim_id: str) -> list[dict]:
                 (row["revision_id"],),
             ).fetchall()
         ]
+        if has_exclusions:
+            for link in links:
+                exclusion = conn.execute("SELECT reason FROM source_semantic_exclusions WHERE event_id=? AND event_revision=? AND part_index=? AND body_sha256=?", (link["event_id"],link["event_revision"],link["part_index"],link["body_sha256"])).fetchone()
+                link["nonassertive_scope"] = exclusion["reason"] if exclusion else None
         revisions.append(
             {
                 **dict(row),
@@ -500,6 +505,10 @@ def _evidence_class(revision: dict) -> str:
     """Accepted support / uncertain / revoked, separate from raw readability."""
     if not revision["links"]:
         return "uncertain"
+    if any(link.get("nonassertive_scope") for link in revision["links"]):
+        # Reading history or a utility clock does not independently assert a
+        # current business fact. Other independently supported revisions remain.
+        return "revoked"
     availabilities = {link["availability"] for link in revision["links"]}
     if "retracted" in availabilities:
         return "revoked"

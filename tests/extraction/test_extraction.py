@@ -120,26 +120,38 @@ def test_desired_and_observed_proposals_stay_separate_claims(store):
     assert {item["facet"] for item in items} == {"desired", "observed"}
 
 
-def test_quote_must_match_stored_sanitized_part(store):
+@pytest.mark.parametrize("processor", ["prompt:8", "prompt:9"])
+def test_quote_must_match_stored_sanitized_part(store, processor):
     event = _receive(store)
+    with store.transaction() as conn:
+        conn.execute("UPDATE jobs SET prompt_version=? WHERE kind='extract'", (processor,))
     part = _parts(store, event)[0]
     bad = _claim(part, quote="完全不同的一句话")
     extractor = MockExtractor(_proposal(bad))
     result = _extract_once(store, extractor)
-    assert result["state"] == "succeeded"
-    assert result["claims_written"] == 0
+    if processor == "prompt:8":
+        assert result["state"] == "succeeded" and result["claims_written"] == 0
+    else:
+        assert result["state"] == "retry_wait" and result["failure_category"] == "evidence_invalid"
     assert current_items(store, workspace_id="owner:demo") == []
 
 
-def test_proposal_cannot_reference_other_events(store):
+@pytest.mark.parametrize("processor", ["prompt:8", "prompt:9"])
+def test_proposal_cannot_reference_other_events(store, processor):
     event = _receive(store)
+    with store.transaction() as conn:
+        conn.execute("UPDATE jobs SET prompt_version=? WHERE kind='extract'", (processor,))
     other = make_event(native_id="message:other", text="另一个事件")
     part = _parts(store, event)[0]
     forged = _claim(part)
     forged["evidence"][0]["event_id"] = other["event_id"]
     extractor = MockExtractor(_proposal(forged))
     result = _extract_once(store, extractor)
-    assert result["claims_written"] == 0
+    if processor == "prompt:8":
+        assert result["claims_written"] == 0
+    else:
+        assert result["state"] == "retry_wait" and result["failure_category"] == "evidence_invalid"
+    assert current_items(store, workspace_id="owner:demo") == []
 
 
 def test_proposal_cannot_forge_authority(store):
@@ -166,33 +178,53 @@ def test_assistant_proposal_is_reported_not_user_confirmed(store):
     assert item["evidence_grade"] == "inferred"
 
 
-def test_explicit_correction_without_user_evidence_is_dropped(store):
+@pytest.mark.parametrize("processor", ["prompt:8", "prompt:9"])
+def test_explicit_correction_without_user_evidence_is_dropped(store, processor):
     event = make_event(native_id="message:assistant2", text="端口改为4200", role="assistant", origin_kind="assistant_reply")
     receive_batch(store, make_batch([event]))
+    with store.transaction() as conn:
+        conn.execute("UPDATE jobs SET prompt_version=? WHERE kind='extract'", (processor,))
     part = _parts(store, event)[0]
     extractor = MockExtractor(_proposal(_claim(part)))
     result = _extract_once(store, extractor)
-    assert result["claims_written"] == 0
+    if processor == "prompt:8":
+        assert result["claims_written"] == 0
+    else:
+        assert result["state"] == "retry_wait" and result["failure_category"] == "proposal_invalid"
 
+    assert current_items(store, workspace_id="owner:demo") == []
 
-def test_secret_in_proposal_is_quarantined(store):
+@pytest.mark.parametrize("processor", ["prompt:8", "prompt:9"])
+def test_secret_in_proposal_is_quarantined(store, processor):
     event = _receive(store)
+    with store.transaction() as conn:
+        conn.execute("UPDATE jobs SET prompt_version=? WHERE kind='extract'", (processor,))
     part = _parts(store, event)[0]
     leaky = _claim(part, display_text="密码: CANARY-PW-7f3a")
     extractor = MockExtractor(_proposal(leaky))
     result = _extract_once(store, extractor)
-    assert result["claims_written"] == 0
+    if processor == "prompt:8":
+        assert result["claims_written"] == 0
+    else:
+        assert result["state"] == "retry_wait" and result["failure_category"] == "proposal_invalid"
     assert current_items(store, workspace_id="owner:demo") == []
 
 
-def test_unresolved_project_is_not_guessed(store):
+@pytest.mark.parametrize("processor", ["prompt:8", "prompt:9"])
+def test_unresolved_project_is_not_guessed(store, processor):
     event = _receive(store)
+    with store.transaction() as conn:
+        conn.execute("UPDATE jobs SET prompt_version=? WHERE kind='extract'", (processor,))
     part = _parts(store, event)[0]
     claim = _claim(part, project_hint="project:unknown")
     extractor = MockExtractor(_proposal(claim))
     result = _extract_once(store, extractor)
-    assert result["claims_written"] == 0
+    if processor == "prompt:8":
+        assert result["claims_written"] == 0
+    else:
+        assert result["state"] == "retry_wait" and result["failure_category"] == "proposal_invalid"
 
+    assert current_items(store, workspace_id="owner:demo") == []
 
 def test_invalid_proposal_schema_fails_job_retryably(store):
     event = _receive(store)

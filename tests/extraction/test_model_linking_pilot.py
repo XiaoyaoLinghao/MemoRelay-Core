@@ -2,7 +2,7 @@
 import json
 import pytest
 from knowledge_weaver.store import receive_batch,current_items
-from knowledge_weaver.extraction import load_event_group,sanitized_parts,run_extraction_job
+from knowledge_weaver.extraction import load_event_group,sanitized_parts,run_extraction_job,ExtractionError
 from knowledge_weaver.jobs import claim as claim_jobs
 from knowledge_weaver.store.claims import record_claim_revision
 from ..state.conftest import evidence_ref
@@ -10,8 +10,11 @@ from ..store.conftest import make_event,make_batch
 from ..state.conftest import record
 from .test_extraction import MockExtractor,_claim,_proposal
 
-def propose(store,event,**overrides):
- receive_batch(store,make_batch([event],batch_id='batch:'+event['source']['native_event_id']));part=sanitized_parts(load_event_group(store,event['event_id'],1))[0];c=_claim(part,**({'assertion_kind':'explicit_statement'}|overrides));m=MockExtractor(_proposal(c));jobs=claim_jobs(store,worker_id='pilot:test',kinds=('extract',),limit=1000);j=next(x for x in jobs if x['input_key']==event['event_id']+'@1');r=run_extraction_job(store,j,m);return r,m
+def propose(store,event,processor=None,**overrides):
+ receive_batch(store,make_batch([event],batch_id='batch:'+event['source']['native_event_id']));part=sanitized_parts(load_event_group(store,event['event_id'],1))[0];c=_claim(part,**({'assertion_kind':'explicit_statement'}|overrides));m=MockExtractor(_proposal(c));
+ if processor:
+  with store.transaction() as conn:conn.execute("UPDATE jobs SET prompt_version=? WHERE input_key=?",(processor,event['event_id']+'@1'))
+ jobs=claim_jobs(store,worker_id='pilot:test',kinds=('extract',),limit=1000);j=next(x for x in jobs if x['input_key']==event['event_id']+'@1');r=run_extraction_job(store,j,m);return r,m
 
 def test_same_entity_reuses_backend_identity_despite_different_subject_words(store):
  first=record(store,subject_id='subject:canonical',display_text='云杉项目服务端口4387',value=4387)
@@ -28,8 +31,9 @@ def test_observed_and_desired_share_entity_but_keep_separate_properties(store):
  items=[x for x in current_items(store,workspace_id='owner:demo') if x['predicate']=='server.port'];assert len(items)==2
  assert {(x['subject_id'],x['facet'],x['value']) for x in items}=={('subject:canonical','desired',4399),('subject:canonical','observed',4398)}
 
+@pytest.mark.parametrize('processor',['prompt:8','prompt:9'])
 @pytest.mark.parametrize('case',['other-workspace','other-project','other-property','other-qualifiers','unknown-id'])
-def test_target_must_be_actual_compatible_scoped_field(store,case):
+def test_target_must_be_actual_compatible_scoped_field(store,case,processor):
  kwargs={}
  if case=='other-workspace':kwargs['workspace_id']='owner:other'
  if case=='other-project':kwargs['project_id']='project:other'
@@ -40,8 +44,12 @@ def test_target_must_be_actual_compatible_scoped_field(store,case):
  else:old=record(store,subject_id='subject:unrelated',display_text='existing endpoint',value=4387,**kwargs)
  target=old['claim_id'] if case!='unknown-id' else 'claim:nonexistent'
  e=make_event(native_id='message:next',text='云杉服务端口4399')
- r,m=propose(store,e,target_claim_hint=target,value=4399)
- assert r['claims_written']==0
+ if processor=='prompt:8':
+  r,m=propose(store,e,target_claim_hint=target,value=4399,processor=processor)
+  assert r['claims_written']==0
+ else:
+  with pytest.raises(ExtractionError) as exc:propose(store,e,target_claim_hint=target,value=4399,processor=processor)
+  assert exc.value.category=='proposal_invalid'
  with store.read() as c:
   assert c.execute('SELECT COUNT(*) FROM claim_revisions').fetchone()[0]==1
   assert c.execute('SELECT COUNT(*) FROM event_parts WHERE event_id=?',(e['event_id'],)).fetchone()[0]==1

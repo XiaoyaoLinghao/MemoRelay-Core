@@ -69,6 +69,8 @@ COMPATIBILITY_COLUMNS: tuple[tuple[str, str, str], ...] = (
     # recorded?" is a persisted fact instead of a second-granularity string
     # comparison (which cannot order equal timestamps or mixed UTC offsets).
     ("jobs", "completed_seq", "INTEGER NULL"),
+    # Explicit same-source processor upgrade request; never an automatic retry.
+    ("jobs", "repair_of_job_id", "TEXT NULL"),
     ("backend_meta", "ledger_seq", "INTEGER NOT NULL DEFAULT 0"),
 )
 
@@ -165,6 +167,7 @@ def _apply_compatibility_migrations(connection: sqlite3.Connection) -> None:
     for table, column, declaration in COMPATIBILITY_COLUMNS:
         if _ensure_column(connection, table, column, declaration):
             added.add((table, column))
+    connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS jobs_repair_parent_unique ON jobs(repair_of_job_id) WHERE repair_of_job_id IS NOT NULL")
     if ("jobs", "completed_seq") in added:
         # AC52-R7: only the open that adds the new column can repair the old
         # association; later opens are strictly no-ops.

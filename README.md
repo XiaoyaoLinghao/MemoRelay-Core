@@ -2,7 +2,7 @@
 
 知枢：唯一语义提炼中心，管理事实、来源、版本、更正、冲突、检索、向量一致性、保留及导入导出。
 
-属于 [承忆 · MemoRelay](https://github.com/XiaoyaoLinghao/MemoRelay)。版本：**2.0.0rc1，试运行候选**。
+属于 [承忆 · MemoRelay](https://github.com/XiaoyaoLinghao/MemoRelay)。版本：**2.0.0，正式版本**。
 
 ## 安装与使用
 
@@ -28,3 +28,5 @@ Python >=3.11，核心无第三方运行依赖，面向macOS13/Intel/16GB。本�
 ## 使用范围
 
 源码可见性由 GitHub 仓库设置决定；许可证尚未另行指定，保留原版权与上游记录。
+
+本版本合入已审核的长来源提炼、稳定原生来源身份、诊断与恢复修复。正式包名和版本见pyproject.toml；兼容运行模块保留。详细范围与局限见总仓库docs/RELEASE-2.0.0.md。新版本的原始源码血缘记录于RELEASE_2_0_0_PROVENANCE.json，SOURCE_PROVENANCE.json保留最初导入快照。

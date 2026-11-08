@@ -35,7 +35,7 @@ from knowledge_weaver.store.db import Store, utc_now
 from knowledge_weaver.store.status import operation_ledger
 
 FORMAT_VERSION = "1.0"
-SNAPSHOT_SCHEMA_VERSION = 3
+SNAPSHOT_SCHEMA_VERSION = 5
 RECORDS_DIR = "records"
 CONFIG_DIR = "config"
 
@@ -49,6 +49,8 @@ TABLES = {
     "claims": "claims.jsonl",
     "claim_revisions": "claim_revisions.jsonl",
     "evidence_links": "evidence_links.jsonl",
+    "source_semantic_exclusions": "source_semantic_exclusions.jsonl",
+    "source_duplicate_resolutions": "source_duplicate_resolutions.jsonl",
     "current_claims": "current_claims.jsonl",
     "task_views": "task_views.jsonl",
     "entities": "entities.jsonl",
@@ -67,6 +69,8 @@ REQUIRED_FILES = ("manifest.json", "SHA256SUMS", f"{CONFIG_DIR}/versions.json", 
 #: Tables added in snapshot schema v3 (capability/resource registry). Older v2
 #: snapshots legitimately lack these files; v3 requires them for completeness.
 V3_TABLES = frozenset({"capabilities", "resources"})
+V4_TABLES = frozenset({"source_semantic_exclusions"})
+V5_TABLES = frozenset({"source_duplicate_resolutions"})
 
 LIMITATIONS = [
     "deletions_after_snapshot_unknown: the snapshot cannot see deletions that happened after it was taken",

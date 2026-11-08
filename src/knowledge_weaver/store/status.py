@@ -94,7 +94,7 @@ OPERATION_INPUT_PREFIX = "operation:"
 #: use this predicate, so an invalid association cannot hide a failure even if
 #: one of the two layers is bypassed.  It has no bind parameters and only uses
 #: the fixed aliases ``j`` (the candidate row) and ``t`` (the target row).
-VALID_RECOVERY_LINK_SQL = (
+_VALID_OPERATION_RECOVERY_SQL = (
     "j.recovered_by_job_id IS NOT NULL AND j.recovered_at IS NOT NULL "
     "AND j.state = 'failed' AND j.last_error_code IS NOT NULL "
     f"AND j.model_version = '{OPERATION_LEDGER_VERSION}' "
@@ -106,6 +106,38 @@ VALID_RECOVERY_LINK_SQL = (
     "AND t.completed_seq IS NOT NULL AND t.completed_seq > j.completed_seq"
     ")"
 )
+# The only queue recovery is an explicit v3--v6 -> v7 upgrade of the SAME
+# source revision, durably requested by the new job and linked in its commit.
+from knowledge_weaver.jobs.repair_versions import upgrade_sql, MAX_REPAIR_DEPTH
+
+_VALID_EXTRACT_RECOVERY_SQL = """
+    j.kind='extract' AND j.state='failed' AND j.last_error_code IS NOT NULL
+    AND j.recovered_by_job_id IS NOT NULL AND j.recovered_at IS NOT NULL
+    AND j.completed_seq IS NOT NULL AND EXISTS (
+      SELECT 1 FROM jobs t WHERE t.job_id=j.recovered_by_job_id AND t.job_id<>j.job_id
+      AND t.kind='extract' AND t.state='succeeded' AND t.input_key=j.input_key
+      AND t.model_version IS j.model_version AND t.policy_version IS j.policy_version
+      AND t.completed_seq IS NOT NULL AND t.completed_seq>j.completed_seq
+      AND EXISTS (
+        WITH RECURSIVE chain(job_id, repair_of_job_id, prompt_version, input_version, depth) AS (
+          SELECT t.job_id, t.repair_of_job_id, t.prompt_version, t.input_version, 0
+          UNION ALL
+          SELECT p.job_id,p.repair_of_job_id,p.prompt_version,p.input_version,a.depth+1
+          FROM chain a JOIN jobs p ON p.job_id=a.repair_of_job_id
+          WHERE a.depth < DEPTH_LIMIT AND p.kind='extract' AND p.state='failed'
+          AND p.last_error_code IS NOT NULL AND p.input_key=t.input_key
+          AND typeof(p.input_version)='integer' AND typeof(a.input_version)='integer'
+          AND p.input_version<a.input_version AND UPGRADE_EDGE
+          AND p.model_version IS t.model_version AND p.policy_version IS t.policy_version
+          AND p.recovered_by_job_id=t.job_id AND p.recovered_at IS NOT NULL
+          AND p.completed_seq IS NOT NULL AND p.completed_seq<t.completed_seq
+        ) SELECT 1 FROM chain WHERE job_id=j.job_id AND depth>0
+      )
+    )
+""".replace('DEPTH_LIMIT',str(MAX_REPAIR_DEPTH)).replace('UPGRADE_EDGE',upgrade_sql('a.prompt_version','p.prompt_version'))
+
+VALID_RECOVERY_LINK_SQL = f"(({_VALID_OPERATION_RECOVERY_SQL}) OR ({_VALID_EXTRACT_RECOVERY_SQL}))"
+
 
 
 def _operation_kind(operation: str) -> str:
@@ -354,6 +386,7 @@ def _job_pipeline(store: Store, kind: str) -> dict:
     unrecovered failures (``completed_seq`` descending, ``NULL`` last) rather than
     the lexicographically largest timestamp.
     """
+    from .source_duplicates import VALID_DUPLICATE_RESOLUTION_SQL
     with store.read() as conn:
         rows = conn.execute(
             "SELECT state, COUNT(*) AS c FROM jobs WHERE kind = ? GROUP BY state", (kind,)
@@ -383,24 +416,28 @@ def _job_pipeline(store: Store, kind: str) -> dict:
         # unrecovered failure, so status derivation fails safe on its own even
         # when the row arrived through an old database instead of import
         # validation.
-        recovered_ledger_failures = int(
+        recovered_failures = int(
             conn.execute(
                 "SELECT COUNT(*) AS c FROM jobs j WHERE j.kind = ? AND j.state = 'failed' "
-                f"AND j.model_version = ? AND ({VALID_RECOVERY_LINK_SQL})",
-                (kind, OPERATION_LEDGER_VERSION),
+                f"AND ({VALID_RECOVERY_LINK_SQL})",
+                (kind,),
             ).fetchone()["c"]
         )
+        duplicate_failures = int(conn.execute(
+            "SELECT COUNT(*) FROM jobs j WHERE j.kind=? AND j.state='failed' "
+            "AND NOT ("+VALID_RECOVERY_LINK_SQL+") AND ("+VALID_DUPLICATE_RESOLUTION_SQL+")",
+            (kind,)).fetchone()[0])
         error_row = conn.execute(
             "SELECT j.last_error_code FROM jobs j WHERE j.kind = ? "
             "AND j.state IN ('failed', 'retry_wait') AND j.last_error_code IS NOT NULL "
-            "AND NOT (j.state = 'failed' AND j.model_version = ? "
-            f"AND ({VALID_RECOVERY_LINK_SQL})) "
+            "AND NOT (j.state = 'failed' "
+            f"AND (({VALID_RECOVERY_LINK_SQL}) OR ({VALID_DUPLICATE_RESOLUTION_SQL}))) "
             "ORDER BY j.completed_seq DESC, j.updated_at DESC, j.rowid DESC LIMIT 1",
-            (kind, OPERATION_LEDGER_VERSION),
+            (kind,),
         ).fetchone()
     pending = counts.get("pending", 0) + counts.get("retry_wait", 0)
     running = counts.get("running", 0)
-    failed = max(0, counts.get("failed", 0) - recovered_ledger_failures)
+    failed = max(0, counts.get("failed", 0) - recovered_failures - duplicate_failures)
     if running:
         state = "running"
     elif failed or counts.get("retry_wait", 0):
